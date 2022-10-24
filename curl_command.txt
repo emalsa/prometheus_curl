@@ -1,0 +1,4 @@
+curl -v -w "@curl-format.txt" --location --include --request GET --compressed https://expired.badssl.com/ -vI  \
+    -H "Accept-Encoding: gzip, deflate" \
+    -H "User-Agent: OhDear.app (+https://ohdear.app/docs/checks/uptime)" \
+    -H "Accept: */*"
