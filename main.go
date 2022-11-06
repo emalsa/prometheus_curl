@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
+	b64 "encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -10,21 +13,19 @@ import (
 )
 
 type Topic struct {
-	Timestamp string  `json:"timestamp"`
-	Payload   Payload `json:"jsonPayload"`
-}
-type Payload struct {
-	Message Message `json:"message"`
-}
-type Message struct {
-	MessageId  string     `json:"messageId"`
-	Attributes Attributes `json:"attributes"`
+	Url         string `json:"url"`
+	Type        string `json:"type"`
+	CheckItemId string `json:"check_item_id"`
+	CloudUrl    string `json:"cloud_url"`
 }
 
-type Attributes struct {
-	Location    string `json:"location"`
+type Response struct {
+	Success     bool   `json:"success"`
+	CheckItemId string `json:"check_item_id"`
+	Response    string `json:"response"`
 	Type        string `json:"type"`
-	SitecheckId string `json:"sitecheck_id"`
+	CloudUrl    string `json:"cloud_url"`
+	Url         string `json:"url"`
 }
 
 func main() {
@@ -37,41 +38,87 @@ func main() {
 }
 
 func curlExecute(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusCreated)
 	body, err := ioutil.ReadAll(r.Body)
-	fmt.Println(string(body))
+	//fmt.Println(string(body))
 	var topic Topic
-	return
+	//return
 
 	//var result map[string]interface{}
 	//json.Unmarshal([]byte(body), &result)
 	errors := json.Unmarshal([]byte(body), &topic)
 	if errors != nil {
-		//fmt.Println(err.Error())
+		fmt.Println(err.Error())
 	}
+	w.WriteHeader(http.StatusAccepted)
+	w.Write([]byte("Ok"))
+	go func() {
 
-	cmd := exec.Command("/usr/bin/curl", "-s", "-w", "@curl-format.txt", "--location", "--include", "--request", "GET", "--compressed", "https://untrusted-root.badssl.com/", "-vI")
-	stdout, err := cmd.CombinedOutput()
-	if err != nil {
-		//fmt.Println(err.Error())
-	}
+		fmt.Println("Start sleep")
+		log.Print("Log Start sleep")
+		//w.Write(stdout)
+		//time.Sleep(15 * time.Second)
+		//log.Print("End sleep")
 
-	log.Print(topic.Payload.Message.Attributes.SitecheckId)
-	log.Print(topic.Payload.Message.Attributes.Type)
-	//log.Print(string(body))
+		//testUrl := "http://www.nicastro.io"
+		cmd := exec.Command("/usr/bin/curl", "-w", "@curl-format.txt", "--request", "GET", "--compressed", "-Lvs", "-o", "/dev/null", topic.Url)
+		stdout, err := cmd.CombinedOutput()
+		if err != nil {
+			fmt.Println(err.Error())
+		}
 
-	// Print the output
-	//fmt.Println(string(stdout))
-	w.Write(stdout)
+		//log.Print(topic.Payload.Message.Attributes.SitecheckId)
+		//log.Print(topic.Payload.Message.Attributes.Type)
 
-	return
+		// Print the output
+
+		sEnc := b64.StdEncoding.EncodeToString([]byte(stdout))
+
+		response := Response{
+			Success:     true,
+			CheckItemId: topic.CheckItemId,
+			Response:    sEnc,
+			Type:        topic.Type,
+			CloudUrl:    topic.CloudUrl,
+			Url:         topic.Url,
+		}
+
+		responseJson, _ := json.Marshal(response)
+		apiUrl := "http://localhost:57849/api/check_item/update?XDEBUG_SESSION_START=PHPSTORM"
+		// Pass new buffer for request with URL to post.
+		// This will make a post request and will share the JSON data
+		fmt.Println("responseJson: ", string(responseJson))
+		resp, err := http.Post(apiUrl, "application/json", bytes.NewBuffer(responseJson))
+
+		// An error is returned if something goes wrong
+		if err != nil {
+			panic(err)
+		}
+		// Need to close the response stream, once response is read.
+		// Hence, defer close. It will automatically take care of it.
+		defer func(Body io.ReadCloser) {
+			err := Body.Close()
+			if err != nil {
+				panic(err)
+			}
+		}(resp.Body)
+
+		// Check response code, if New user is created then read response.
+		if resp.StatusCode == http.StatusOK {
+			_, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				//Failed to read response.
+				panic(err)
+			}
+
+			// Convert bytes to String and print
+			//jsonStr := string(body)
+			//fmt.Println("Response: ", jsonStr)
+
+		} else {
+			//The status is not Created. print the error.
+			fmt.Println("Get failed with error: ", resp.Status)
+		}
+
+		return
+	}()
 }
-
-//cmd.Stdout = os.Stdout
-//cmd.Stderr = os.Stderr
-//err := cmd.Run()
-//if err != nil {
-//	log.Fatalf("cmd.Run() failed with %s\n", err)
-//}
-//fmt.Println(string(os.Stdout.s))
-//}
