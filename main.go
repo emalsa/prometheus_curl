@@ -42,17 +42,20 @@ func curlExecute(w http.ResponseWriter, r *http.Request) {
 	//fmt.Println(string(body))
 	var topic Topic
 	//return
-
+	fmt.Println("Start test")
+	log.Print("Start test")
 	//var result map[string]interface{}
 	//json.Unmarshal([]byte(body), &result)
 	errors := json.Unmarshal([]byte(body), &topic)
 	if errors != nil {
 		fmt.Println(err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return
 	}
 	w.WriteHeader(http.StatusAccepted)
 	w.Write([]byte("Ok"))
 	go func() {
-
 		fmt.Println("Start sleep")
 		log.Print("Log Start sleep")
 		//w.Write(stdout)
@@ -64,6 +67,8 @@ func curlExecute(w http.ResponseWriter, r *http.Request) {
 		stdout, err := cmd.CombinedOutput()
 		if err != nil {
 			fmt.Println(err.Error())
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
 		}
 
 		//log.Print(topic.Payload.Message.Attributes.SitecheckId)
@@ -72,7 +77,6 @@ func curlExecute(w http.ResponseWriter, r *http.Request) {
 		// Print the output
 
 		sEnc := b64.StdEncoding.EncodeToString([]byte(stdout))
-
 		response := Response{
 			Success:     true,
 			CheckItemId: topic.CheckItemId,
@@ -83,7 +87,7 @@ func curlExecute(w http.ResponseWriter, r *http.Request) {
 		}
 
 		responseJson, _ := json.Marshal(response)
-		apiUrl := "http://localhost:57849/api/check_item/update?XDEBUG_SESSION_START=PHPSTORM"
+		apiUrl := "http://localhost:61032/api/check_item/update?XDEBUG_SESSION_START=PHPSTORM"
 		// Pass new buffer for request with URL to post.
 		// This will make a post request and will share the JSON data
 		fmt.Println("responseJson: ", string(responseJson))
@@ -91,6 +95,8 @@ func curlExecute(w http.ResponseWriter, r *http.Request) {
 
 		// An error is returned if something goes wrong
 		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
 			panic(err)
 		}
 		// Need to close the response stream, once response is read.
@@ -98,15 +104,19 @@ func curlExecute(w http.ResponseWriter, r *http.Request) {
 		defer func(Body io.ReadCloser) {
 			err := Body.Close()
 			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(err.Error()))
 				panic(err)
 			}
 		}(resp.Body)
 
-		// Check response code, if New user is created then read response.
+		// Check response code.
 		if resp.StatusCode == http.StatusOK {
 			_, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
 				//Failed to read response.
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(err.Error()))
 				panic(err)
 			}
 
