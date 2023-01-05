@@ -17,6 +17,7 @@ type Topic struct {
 	Type        string `json:"type"`
 	CheckItemId string `json:"check_item_id"`
 	CloudUrl    string `json:"cloud_url"`
+	FromHost    string `json:"from_host"`
 }
 
 type Response struct {
@@ -87,7 +88,8 @@ func curlExecute(w http.ResponseWriter, r *http.Request) {
 		}
 
 		responseJson, _ := json.Marshal(response)
-		apiUrl := "http://localhost:61032/api/check_item/update?XDEBUG_SESSION_START=PHPSTORM"
+		//apiUrl := "http://localhost:61032/api/check_item/update?XDEBUG_SESSION_START=PHPSTORM"
+		apiUrl := topic.FromHost
 		// Pass new buffer for request with URL to post.
 		// This will make a post request and will share the JSON data
 		fmt.Println("responseJson: ", string(responseJson))
